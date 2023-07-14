@@ -4,6 +4,15 @@
  *  1.2 展示到下拉菜单中
  */
 
+async function getChannels() {
+    const result = await axios({url: `/v1_0/channels`})
+    document.querySelector('#channel_id').innerHTML = `<option value="">请选择文章频道</option>` +
+        result.data.channels.map(item => {
+            return `<option value="${item.id}">${item.name}</option>`
+        }).join(``)
+}
+
+getChannels()
 /**
  * 目标2：文章封面设置
  *  2.1 准备标签结构和样式
@@ -11,7 +20,45 @@
  *  2.3 单独上传图片并得到图片 URL 网址
  *  2.4 回显并切换 img 标签展示（隐藏 + 号上传标签）
  */
+const {createEditor, createToolbar} = window.wangEditor
 
+const editorConfig = {
+    placeholder: '请输入文章内容...',
+    onChange(editor) {
+        const html = editor.getHtml()
+        console.log('editor content', html)
+        document.querySelector('.publish-content').value = html
+        // 也可以同步到 <textarea>
+    }
+}
+
+const editor = createEditor({
+    selector: '#editor-container',
+    html: '<p><br></p>',
+    config: editorConfig,
+    mode: 'default', // or 'simple'
+})
+
+const toolbarConfig = {}
+
+const toolbar = createToolbar({
+    editor,
+    selector: '#toolbar-container',
+    config: toolbarConfig,
+    mode: 'default', // or 'simple'
+})
+document.querySelector(`.img-file`).addEventListener("change", async (e) => {
+    const formData = new FormData()
+    formData.append("image", e.target.files[0])
+    const result = await axios({url: `/v1_0/upload`, method: `POST`, data: formData})
+    document.querySelector('.place').classList.add("hide")
+    document.querySelector('.rounded').classList.add("show")
+    document.querySelector('.rounded').src = result.data.url
+})
+document.querySelector('.rounded').addEventListener('click', () => {
+    document.querySelector(`.img-file`).click()
+
+})
 /**
  * 目标3：发布文章保存
  *  3.1 基于 form-serialize 插件收集表单数据对象
@@ -19,7 +66,30 @@
  *  3.3 调用 Alert 警告框反馈结果给用户
  *  3.4 重置表单并跳转到列表页
  */
+document.querySelector(`.send`).addEventListener("click", async () => {
+    const publishForm = document.querySelector('.art-form')
+    const data = serialize(publishForm, {hash: true, empty: true})
+    const url = document.querySelector('.rounded').src
+    data.cover = {
+        type: url ? 0 : 1,
+        images: [url]
+    }
+    console.log(data)
+    try {
+        const result = await axios({url: `/v1_0/mp/articles`, method: `POST`, data})
+        editor.setHtml(`<p><br></p>`)
+        publishForm.reset()
+        document.querySelector('.place').classList.remove("hide")
+        document.querySelector('.rounded').classList.remove("show")
+        document.querySelector('.rounded').src =``
+        myAlert(true,"文章发布成功")
+        location.href=`../content/index.html`
+        console.log(result)
+    } catch (e) {
+        myAlert(false,e.response.data.message)
+    }
 
+})
 /**
  * 目标4：编辑-回显文章
  *  4.1 页面跳转传参（URL 查询参数方式）
