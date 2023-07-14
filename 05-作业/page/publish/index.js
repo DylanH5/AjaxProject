@@ -4,6 +4,8 @@
  *  1.2 展示到下拉菜单中
  */
 
+const urlParams = location.search
+
 async function getChannels() {
     const result = await axios({url: `/v1_0/channels`})
     document.querySelector('#channel_id').innerHTML = `<option value="">请选择文章频道</option>` +
@@ -66,7 +68,8 @@ document.querySelector('.rounded').addEventListener('click', () => {
  *  3.3 调用 Alert 警告框反馈结果给用户
  *  3.4 重置表单并跳转到列表页
  */
-document.querySelector(`.send`).addEventListener("click", async () => {
+document.querySelector(`.send`).addEventListener("click", async (e) => {
+
     const publishForm = document.querySelector('.art-form')
     const data = serialize(publishForm, {hash: true, empty: true})
     const url = document.querySelector('.rounded').src
@@ -76,17 +79,19 @@ document.querySelector(`.send`).addEventListener("click", async () => {
     }
     console.log(data)
     try {
-        const result = await axios({url: `/v1_0/mp/articles`, method: `POST`, data})
+        const result = urlParams ? await axios({url: `/v1_0/mp/articles/${data.id}`, method: `PUT`, data})
+            : await axios({url: `/v1_0/mp/articles`, method: `POST`, data})
         editor.setHtml(`<p><br></p>`)
         publishForm.reset()
         document.querySelector('.place').classList.remove("hide")
         document.querySelector('.rounded').classList.remove("show")
-        document.querySelector('.rounded').src =``
-        myAlert(true,"文章发布成功")
-        location.href=`../content/index.html`
+        document.querySelector('.rounded').src = ``
+        myAlert(true, urlParams ? "文章编辑成功" : "文章发布成功")
+        setTimeout(()=>{location.href = `../content/index.html`}, 1000)
         console.log(result)
-    } catch (e) {
-        myAlert(false,e.response.data.message)
+    } catch
+        (e) {
+        myAlert(false, e.response.data.message)
     }
 
 })
@@ -97,7 +102,35 @@ document.querySelector(`.send`).addEventListener("click", async () => {
  *  4.3 修改标题和按钮文字
  *  4.4 获取文章详情数据并回显表单
  */
-
+;(() => {
+    const urlParams = location.search
+    if (urlParams) {
+        document.querySelector(`.title`).innerHTML = `<span>编辑文章</span>`
+        document.querySelector(`.send`).innerHTML = `<span>编辑</span>`
+        new URLSearchParams(urlParams).forEach(async (value, key) => {
+            if ("id" === key) {
+                const result = await axios({url: `/v1_0/mp/articles/${value}`})
+                console.log(result)
+                const data = result.data;
+                delete data.pub_date
+                Object.keys(data).forEach(key => {
+                    if ('cover' === key) {
+                        if (data[key].type === 1) {
+                            document.querySelector('.place').classList.add("hide")
+                            document.querySelector('.rounded').classList.add("show")
+                            document.querySelector('.rounded').src = data[key].images[0]
+                        }
+                    } else if ('content' === key) {
+                        editor.setHtml(data[key])
+                    } else {
+                        document.querySelector(`[name=${key}]`).value = data[key]
+                    }
+                })
+            }
+        })
+    }
+    console.log()
+})()
 /**
  * 目标5：编辑-保存文章
  *  5.1 判断按钮文字，区分业务（因为共用一套表单）
